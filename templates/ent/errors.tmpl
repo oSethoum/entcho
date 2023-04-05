@@ -1,0 +1,7 @@
+package ent
+
+import "strings"
+
+func IsPrivacyError(err error) bool {
+	return strings.Contains(err.Error(), "ent/privacy")
+}

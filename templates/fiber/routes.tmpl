@@ -1,0 +1,24 @@
+package routes
+
+import (
+    "{{ dir .Package }}/handlers"
+    "github.com/labstack/echo/v4"
+
+)
+
+func routes(r *echo.Group) {
+    {{- range .Schemas }}
+    {{- $r := plural .Name | camel  }}
+    {{- $pn := pascal .Name}}
+    {{- $ppn := pascal .Name | plural }}
+    {{ $r }} := r.Group("/{{ $r }}")
+    {{ $r }}.GET("/:id", handlers.Find{{ $pn }})
+    {{ $r }}.GET("/", handlers.Find{{ $ppn }})
+    {{ $r }}.POST("/", handlers.Create{{ $pn }})
+    {{ $r }}.POST("/bulk", handlers.Create{{ $ppn }})
+    {{ $r }}.PATCH("/:id", handlers.Update{{ $pn }})
+    {{ $r }}.PATCH("/", handlers.Update{{ $ppn }})
+    {{ $r }}.DELETE("/:id", handlers.Delete{{ $pn }})
+    {{ $r }}.DELETE("/", handlers.Delete{{ $ppn }})
+    {{ end -}}
+}

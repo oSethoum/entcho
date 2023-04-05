@@ -1,0 +1,258 @@
+package ent
+{{- $g := . }}
+{{- $imps := imports .Graph}}
+
+import (
+    "fmt"
+    "strings"
+    "errors"
+    "{{ .Package }}/predicate"
+    {{- range $imps}}
+    "{{ . }}"
+    {{- end }}
+    {{- range .Schemas}}
+    "{{ $g.Package }}/{{ lower .Name}}"
+    {{- end}}
+)
+
+type OrderField struct {
+	Field     string `json:"field"`
+	Direction string `json:"direction"`
+}
+
+{{- range $k, $s := .Schemas }}
+    type {{ pascal .Name }}QueryInput struct {
+        Select []string 					    `json:"select,omitempty"`
+	    Offset *int     					    `json:"offset,omitempty"`
+	    Limit  *int     					    `json:"limit,omitempty"`
+	    Where  *{{ pascal .Name }}WhereInput	`json:"where,omitempty"`
+	    Order  []OrderField    				    `json:"order,omitempty"`
+	    {{- range .Edges }}
+	    With{{ pascal .Name }} *{{ pascal .Type }}QueryInput `json:"with{{ pascal .Name }},omitempty"`
+	    {{- end }}
+    }
+
+    type {{ pascal .Name }}WhereInput struct {
+        Not 	*{{ pascal .Name }}WhereInput   `json:"not"`
+	    Or  	[]*{{ pascal .Name }}WhereInput `json:"or"`
+	    And 	[]*{{ pascal .Name }}WhereInput `json:"and"`
+
+        {{- range .Fields }}
+            {{- if extract_type . | eq "bool" }}
+                {{ pascal .Name }}EQ  *{{ extract_type . }}  `json:"{{ camel .Name }}EQ,omitempty"`
+                {{ pascal .Name }}NEQ *{{ extract_type . }}  `json:"{{ camel .Name }}NEQ,omitempty"`
+            {{- end }}
+            {{- if is_comparable . }}
+                {{ pascal .Name }}      *{{ extract_type . }}  `json:"{{ camel .Name }},omitempty"`
+                {{ pascal .Name }}NEQ   *{{ extract_type . }}  `json:"{{ camel .Name }}NEQ,omitempty"`
+                {{ pascal .Name }}In    []{{ extract_type . }} `json:"{{ camel .Name }}In,omitempty"`
+                {{ pascal .Name }}NotIn []{{ extract_type . }} `json:"{{ camel .Name }}NotIn,omitempty"`
+                
+                {{- if enum_or_edge_filed $s . | not }}
+                    {{ pascal .Name }}GT    *{{ extract_type . }}  `json:"{{ camel .Name }}GT,omitempty"`
+                    {{ pascal .Name }}GTE   *{{ extract_type . }}  `json:"{{ camel .Name }}GTE,omitempty"`
+                    {{ pascal .Name }}LT    *{{ extract_type . }}  `json:"{{ camel .Name }}LT,omitempty"`
+                    {{ pascal .Name }}LTE   *{{ extract_type . }}  `json:"{{ camel .Name }}LTE,omitempty"`
+                {{- end }}
+            {{- end }}
+            {{- if .Optional }}
+                {{ pascal .Name }}IsNil    *bool  `json:"{{ camel .Name }}IsNil,omitempty"`
+                {{ pascal .Name }}NotNil   *bool  `json:"{{ camel .Name }}NotNil,omitempty"`
+            {{- end }}
+            {{- if eq .Name "id" | not }}
+                {{- if extract_type . | eq "string"}}
+                    {{ pascal .Name }}Contains  	 *string  `json:"{{ camel .Name }}Contains,omitempty"`
+                    {{ pascal .Name }}HasPrefix 	 *string  `json:"{{ camel .Name }}HasPrefix,omitempty"`
+                    {{ pascal .Name }}HasSuffix 	 *string  `json:"{{ camel .Name }}HasSuffix,omitempty"`
+                    {{ pascal .Name }}ContainsFold   *string  `json:"{{ camel .Name }}ContainsFold,omitempty"`
+                    {{ pascal .Name }}EqualFold      *string  `json:"{{ camel .Name }}EqualsFold,omitempty"`
+                {{- end }}
+            {{- end }}
+        {{- end }}
+        {{- range .Edges}}
+        // "{{.Name}}" edge predicates.
+            Has{{pascal .Name}} 		*bool		                `json:"has{{pascal .Name}},omitempty"`
+            Has{{pascal .Name}}With     *{{pascal .Type}}WhereInput `json:"has{{pascal .Name}}With,omitempty"`
+        {{- end -}}
+    }
+
+    var  ErrEmpty{{ .Name }}WhereInput = errors.New("ent: empty {{ pascal .Name }}WhereInput")
+
+    func (i *{{ pascal .Name }}WhereInput) P() (predicate.{{ pascal .Name }}, error) {
+        var predicates []predicate.{{ pascal .Name }}
+        if i.Not != nil {
+            p, err := i.Not.P()
+            if err != nil {
+                return nil, fmt.Errorf("%w: field 'not'", err)
+            }
+            predicates = append(predicates, {{ lower .Name }}.Not(p))
+	    }
+
+        switch n := len(i.Or); {
+        case n == 1:
+            p, err := i.Or[0].P()
+            if err != nil {
+                return nil, fmt.Errorf("%w: field 'or'", err)
+            }
+            predicates = append(predicates, p)
+        case n > 1:
+            or := make([]predicate.{{ pascal .Name }}, 0, n)
+            for _, w := range i.Or {
+                p, err := w.P()
+                if err != nil {
+                    return nil, fmt.Errorf("%w: field 'or'", err)
+                }
+                or = append(or, p)
+            }
+            predicates = append(predicates, {{ lower .Name }}.Or(or...))
+        }
+
+        switch n := len(i.And); {
+        case n == 1:
+            p, err := i.And[0].P()
+            if err != nil {
+                return nil, fmt.Errorf("%w: field 'and'", err)
+            }
+            predicates = append(predicates, p)
+        case n > 1:
+            and := make([]predicate.{{ pascal .Name }}, 0, n)
+            for _, w := range i.And {
+                p, err := w.P()
+                if err != nil {
+                    return nil, fmt.Errorf("%w: field 'and'", err)
+                }
+                and = append(and, p)
+            }
+            predicates = append(predicates, {{ lower .Name }}.And(and...))
+        }
+
+        {{ range .Fields }}
+            // "{{camel .Name}}" field predicates.
+            {{- if extract_type . | eq "bool" }}
+            if v := i.{{ pascal .Name }}EQ; v != nil {
+			predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}EQ(*v))
+		    }
+            if v := i.{{ pascal .Name }}EQ; v != nil {
+                predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}EQ(*v))
+            }
+            {{- end }}
+            {{- if is_comparable . }}
+                if v := i.{{ pascal .Name }}; v != nil {
+                predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}EQ(*v))
+                } 
+                if v := i.{{ pascal .Name }}NEQ; v != nil {
+                    predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}NEQ(*v))
+                } 
+                if v := i.{{ pascal .Name }}In; len(v) > 0 {
+                    predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}In(v...))
+                } 
+                if v := i.{{ pascal .Name }}NotIn; len(v) > 0 {
+                    predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}NotIn(v...))
+                }
+
+                {{- if enum_or_edge_filed $s . | not }}
+                    if v := i.{{pascal .Name}}GT; v != nil {
+				    predicates = append(predicates, {{  lower $s.Name }}.{{ pascal .Name }}GT(*v))
+                    }
+                    if v := i.{{pascal .Name}}GTE; v != nil {
+                        predicates = append(predicates, {{  lower $s.Name }}.{{ pascal .Name }}GTE(*v))
+                    }
+                    if v := i.{{pascal .Name}}LT; v != nil {
+                        predicates = append(predicates, {{  lower $s.Name }}.{{ pascal .Name }}LT(*v))
+                    }
+                    if v := i.{{pascal .Name}}LTE; v != nil {
+                        predicates = append(predicates, {{  lower $s.Name }}.{{ pascal .Name }}LTE(*v))
+                    }
+                {{- end }}
+            {{- end }}
+            {{- if .Optional}}
+                if v := i.{{pascal .Name}}IsNil; v != nil && *v {
+                    predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}IsNil())
+                }
+                if v := i.{{pascal .Name}}NotNil; v != nil && *v{
+                    predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}NotNil())
+                }
+            {{end}}
+            
+            {{- if extract_type . | eq "string" }}
+				{{- if eq .Name "id" | not}}
+                    if v := i.{{pascal .Name }}Contains; v != nil {
+                        predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}Contains(*v))
+                    }
+                    if v := i.{{ pascal .Name }}HasPrefix; v != nil {
+                        predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}HasPrefix(*v))
+                    }
+                    if v := i.{{ pascal .Name }}HasSuffix; v != nil {
+                        predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}HasSuffix(*v))
+                    }
+                    if v := i.{{ pascal .Name }}HasSuffix; v != nil {
+                        predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}HasSuffix(*v))
+                    }
+                    if v := i.{{ pascal .Name }}ContainsFold; v != nil {
+                        predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}ContainsFold(*v))
+                    }
+                    if v := i.{{ pascal .Name }}EqualFold; v != nil {
+                        predicates = append(predicates, {{ lower $s.Name }}.{{ pascal .Name }}EqualFold(*v))
+                    }
+                {{- end}}
+			{{- end }}
+        {{ end }}
+
+        {{ range .Edges }}
+        // "{{ .Name }}" edge predicates.
+        if v := i.Has{{ pascal .Name }}; v != nil && *v {
+		    predicates = append(predicates, {{ lower $s.Name }}.Has{{ pascal .Name }}())
+        }
+        if v := i.Has{{ pascal .Name }}With; v != nil {
+            p, err := v.P()
+            if err == nil {
+                predicates = append(predicates, {{ lower $s.Name }}.Has{{ pascal .Name }}With(p))
+            }
+        }
+        {{ end }}
+        switch len(predicates) {
+            case 0:
+                return nil, ErrEmpty{{pascal .Name}}WhereInput
+            case 1:
+                return predicates[0], nil
+            default:
+                return {{camel .Name}}.And(predicates...), nil
+        }
+    }
+
+    func (q *{{ pascal .Name }}Query) SetInput(i *{{ pascal .Name }}QueryInput) *{{ pascal .Name }}Query {
+        if i == nil {
+            return q
+        }
+        if i.Where != nil {
+            ps, err := i.Where.P()
+            if err == nil {
+                q.Where(ps)
+            }
+        }
+            if v := i.Order; len(v) > 0 {
+            for _, o := range v {
+                if strings.ToUpper(o.Direction) == "DESC" {
+                    q.Order(Desc(o.Field))
+                } else {
+                    q.Order(Asc(o.Field))
+                }
+            }
+        }
+        {{- range .Edges }}
+        if v := i.With{{ pascal .Name }}; v != nil {
+            q.With{{ pascal .Name }}(func(nq *{{ pascal .Type }}Query){ nq.SetInput(v) })
+        }
+        {{- end}}
+        if  len(i.Select) > 0 {
+            q.Select(i.Select...)
+        }
+        if v := i.Offset; v != nil {
+            q.Offset(*v)
+        }
+        if v := i.Limit; v != nil {
+            q.Limit(*v)
+        }	
+        return q
+    }
+{{- end }}

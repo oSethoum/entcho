@@ -1,0 +1,128 @@
+{{ $g := . }}
+
+type OrderDirection = "ASC" | "DESC";
+{{ range $s := .Schemas }}
+
+export interface {{ pascal .Name }} {
+    {{ range .Fields }}
+        {{ get_name . }}{{- if or .Optional .Nillable }}?{{- end}}: {{ get_type .Info }};
+    {{- end}}
+    {{- $ed := len .Edges }}
+    {{- if gt $ed 0 }}
+    edges:{
+    {{- range .Edges }}
+        {{ camel .Name }}?: {{ pascal .Type }} {{- if not .Unique}}[]{{- end}};
+    {{- end}}
+    }
+    {{- end}}
+}
+
+export interface {{ pascal .Name }}CreateInput{
+    {{ range .Fields }}
+        {{ get_name . }}{{- if or .Optional .Nillable .Default }}?{{- end}}: {{ get_type .Info }};
+    {{- end}}
+    {{- range .Edges}}
+        {{- if edge_field . | not }}
+            {{- if .Unique}}
+                {{ camel .Name }}Id{{- if not .Required}}?{{- end}}: {{ get_type $g.Config.IDType }};
+            {{- else}}
+                add{{ singular .Name | pascal }}Ids?: {{ get_type $g.Config.IDType }}[];
+            {{- end  }}
+        {{- end }}
+    {{- end}}
+}
+
+export interface {{ pascal .Name }}UpdateInput{
+    {{ range .Fields }}
+        {{ get_name . }}{{- if is_slice . | not }}?{{ end }}: {{ get_type .Info }};
+    {{- end}}
+    {{- range .Edges}}
+        {{- if edge_field . | not }}
+            {{- if .Unique}}
+                {{ camel .Name }}Id{{- if not .Required}}?{{- end}}: {{ get_type $g.Config.IDType }};
+            {{- else}}
+                add{{ singular .Name | pascal }}Ids?: {{ id_type $s }}[];
+                remove{{ singular .Name | pascal }}Ids?: {{ id_type $s }}[];
+                clear{{ pascal .Name }}?: boolean;
+            {{- end  }}
+        {{- end }}
+    {{- end}}
+}
+
+type {{ pascal .Name }}OrderField = {{ order_fields . }}
+type {{ pascal .Name }}SelectField = {{ select_fields . }}
+
+export interface {{ pascal .Name }}Order {
+    field: {{ pascal .Name }}OrderField;
+    direction?: OrderDirection;
+}
+
+export interface {{ pascal .Name }}QueryInput {
+    select?: {{ pascal .Name }}SelectField[];
+    offset?: number;
+    limit?: number;
+    where?: {{ pascal .Name }}WhereInput;
+    order?: {{ pascal .Name }}Order[];
+    {{- range .Edges }}
+    with{{ pascal .Name }}?: {{ pascal .Type }}QueryInput;
+    {{- end }}
+}
+
+export interface {{ pascal .Name }}WhereInput {
+    not?: {{ pascal .Name }}WhereInput;  
+    or?: {{ pascal .Name }}WhereInput[];
+    and?: {{ pascal .Name }}WhereInput[];
+    {{- range .Fields }}
+        {{- if get_type .Info | eq "boolean" }}
+            {{ camel .Name }}EQ?:  {{ get_type .Info }};
+            {{ camel .Name }}NEQ?: {{ get_type .Info }}; 
+        {{- end }}
+        {{- if is_comparable . }}
+            {{ camel .Name }}?: {{ get_type .Info }};
+            {{ camel .Name }}NEQ?: {{ get_type .Info }} 
+            {{ camel .Name }}In?: {{ get_type .Info }}[];
+            {{ camel .Name }}NotIn?: {{ get_type .Info }}[];
+            
+            {{- if enum_or_edge_filed $s . | not }}
+                {{ camel .Name }}GT?: {{ get_type .Info }};
+                {{ camel .Name }}GTE?: {{ get_type .Info }};
+                {{ camel .Name }}LT?: {{ get_type .Info }};
+                {{ camel .Name }}LTE?: {{ get_type .Info }};
+            {{- end }}
+        {{- end }}
+        {{- if .Optional }}
+            {{ camel .Name }}IsNil?: boolean; 
+            {{ camel .Name }}NotNil?: boolean;
+        {{- end }}
+        {{- if eq .Name "id" | not }}
+            {{- if get_type .Info | eq "string"}}
+                {{ camel .Name }}Contains?: string; 
+                {{ camel .Name }}HasPrefix?: string; 
+                {{ camel .Name }}HasSuffix?: string; 
+                {{ camel .Name }}ContainsFold?: string; 
+                {{ camel .Name }}EqualFold?: string; 
+            {{- end }}
+        {{- end }}
+    {{- end }}
+    {{- range .Edges}}
+    // "{{.Name}}" edge predicates.
+        has{{pascal .Name}}?: boolean;		               
+        has{{pascal .Name}}With?: {{pascal .Type}}WhereInput;
+    {{- end}}
+}   
+
+{{- end }}
+
+// api related types
+export type ID = string;
+export type API = {
+    {{ range .Schemas}}
+        {{ plural .Name | camel }}: {
+            createInput: {{ pascal .Name }}CreateInput;
+            updateInput: {{ pascal .Name }}UpdateInput;
+            queryInput: {{ pascal .Name }}QueryInput;
+            whereInput: {{ pascal .Name }}WhereInput;
+            entity: {{ pascal .Name }}
+        };
+    {{ end }}
+};

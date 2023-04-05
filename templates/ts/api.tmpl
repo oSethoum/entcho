@@ -1,0 +1,115 @@
+import { API, ID } from "./types.ts";
+
+type Response<T> = {
+  code: number;
+  status: "success" | "error";
+  error?: string;
+  data?: T;
+};
+
+export class entcho {
+  private readonly url: string;
+  constructor(url: string) {
+    this.url = url.replace(/\/+$/, "");
+  }
+
+  async find<T extends keyof API>(resource: T, id: ID): Promise<Response<API[T]["entity"]>> {
+    const response = await fetch(`${this.url}/${String(resource)}/${id}`);
+    return response.json();
+  }
+
+  async query<T extends keyof API>(
+    resource: T,
+    query: API[T]["queryInput"] = {}
+  ): Promise<Response<Array<API[T]["entity"]>>> {
+    const response = await fetch(`${this.url}/${String(resource)}?query=${JSON.stringify(query)}`);
+    return response.json();
+  }
+
+  async create<T extends keyof API>(
+    resource: T,
+    input: API[T]["createInput"]
+  ): Promise<Response<API[T]["entity"]>> {
+    const response = await fetch(`${this.url}/${String(resource)}`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+    return response.json();
+  }
+
+  async createBulk<T extends keyof API>(
+    resource: T,
+    input: API[T]["createInput"][]
+  ): Promise<Response<API[T]["entity"][]>> {
+    const response = await fetch(`${this.url}/${String(resource)}/bulk`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+    return response.json();
+  }
+
+  async update<T extends keyof API>(
+    resource: T,
+    id: ID,
+    input: API[T]["updateInput"]
+  ): Promise<Response<API[T]["entity"]>> {
+    const response = await fetch(`${this.url}/${String(resource)}/${id}`, {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(input),
+    });
+    return response.json();
+  }
+
+  async updateMany<T extends keyof API>(
+    resource: T,
+    input: API[T]["updateInput"],
+    where?: API[T]["whereInput"]
+  ): Promise<Response<undefined>> {
+    const response = await fetch(
+      `${this.url}/${String(resource)}${where ? `?${JSON.stringify(where)}` : ""}`,
+      {
+        method: "PATCH",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(input),
+      }
+    );
+    return response.json();
+  }
+
+  async delete<T extends keyof API>(
+    resource: T,
+    where?: API[T]["whereInput"]
+  ): Promise<Response<undefined>> {
+    const response = await fetch(
+      `${this.url}/${String(resource)}${where ? `?${JSON.stringify(where)}` : ""}`,
+      {
+        method: "DELETE",
+      }
+    );
+    return response.json();
+  }
+
+  async deleteMany<T extends keyof API>(
+    resource: T,
+    where?: API[T]["whereInput"]
+  ): Promise<Response<undefined>> {
+    const response = await fetch(
+      `${this.url}/${String(resource)}${where ? `?${JSON.stringify(where)}` : ""}`,
+      {
+        method: "DELETE",
+      }
+    );
+    return response.json();
+  }
+}

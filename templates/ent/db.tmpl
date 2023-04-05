@@ -1,0 +1,37 @@
+package db
+
+import (
+    "log"
+    "{{ .Package }}"
+    "{{ .Package }}/migrate"
+    "context"
+    {{- if eq .DBConfig.Driver "sqlite3" }}
+    _ "github.com/mattn/go-sqlite3"
+    {{- end}}
+    {{- if eq .DBConfig.Driver "mysql" }}
+    _ "github.com/go-sql-driver/mysql"
+    {{- end}}
+    {{- if eq .DBConfig.Driver "postgres" }}
+    _ "github.com/lib/pq"
+    {{- end}}
+)
+
+var Client *ent.Client
+
+func Init() {
+    client, err := ent.Open("{{ .DBConfig.Driver }}", "{{ .DBConfig.Dsn }}")
+    if err != nil {
+        log.Fatalln(err)
+    }
+    
+    err = client.Schema.Create(
+		context.Background(),
+		migrate.WithDropColumn(true),
+		migrate.WithDropIndex(true),
+	)
+
+    if err != nil {
+        log.Fatalln(err)
+    }
+    Client = client
+}

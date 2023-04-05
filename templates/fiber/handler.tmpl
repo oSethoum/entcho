@@ -1,0 +1,279 @@
+package handlers
+
+import (
+	"{{ dir .Package }}/db"
+	"{{ .Package }}"
+	"encoding/json"
+	"net/http"
+	"github.com/labstack/echo/v4"
+)
+
+{{- $pName := pascal .CurrentSchema.Name }}
+{{- $pNames := pascal .CurrentSchema.Name | plural }}
+{{- $cName := camel .CurrentSchema.Name  }}
+{{- $cNames := camel .CurrentSchema.Name | plural }}
+
+func Find{{ $pName }}(c echo.Context error {
+	id := c.Params("id")
+	{{ $cName }}, err := db.Client.{{ $pName }}.Get(c.UserContext(), id)
+	if err != nil {
+		code := http.StatusNotFound
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":  err.Error(),
+		})
+	}
+
+	return c.JSON(echo.Map{
+		"code":   http.StatusOK,
+		"status": "success",
+		"data":   {{ $cName }},
+	})
+}
+
+func Find{{ $pNames }}(c echo.Context) error {
+	query := new(ent.{{ $pName }}QueryInput)
+	q := c.Query("query")
+	if q != "" {
+		err := json.Unmarshal([]byte(q), query)
+		if err != nil {
+			code := http.StatusBadRequest
+			return c.JSON(code, echo.Map{
+				"code":   code,
+				"status": "error",
+				"error":  err.Error(),
+			})
+		}
+	}
+	{{ $cNames }}, err := db.Client.{{ $pName }}.Query().SetInput(query).All(c.UserContext())
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":  err.Error(),
+		})
+	}
+
+	return c.JSON(echo.Map{
+		"code":   http.StatusOK,
+		"status": "success",
+		"data":   {{ $cNames }},
+	})
+}
+
+func Create{{ $pName }}(c echo.Context) error {
+	body := new(ent.{{ $pName }}CreateInput)
+	err := c.Bind(body)
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":  err.Error(),
+		})
+	}
+	{{ $cName }}, err := db.Client.{{ $pName }}.Create().SetInput(body).Save(c.UserContext())
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":  err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusCreated).JSON(echo.Map{
+		"code":   http.StatusCreated,
+		"status": "success",
+		"data":   {{ $cName }},
+	})
+}
+
+func Create{{ $pNames }}(c echo.Context) error {
+	body := []*ent.{{ $pName }}CreateInput{}
+	err := c.Bind(&body)
+	if err != nil {
+		return c.JSON(echo.Map{
+			"code":   http.StatusBadRequest,
+			"status": "error",
+			"error":   err.Error(),
+		})
+	}
+
+	if len(body) == 0 {
+		return c.JSON(echo.Map{
+			"code":   http.StatusBadRequest,
+			"status": "error",
+			"error":   "empty array body",
+		})
+	}
+
+	builders := []*ent.{{ $pName }}Create{}
+	for _, b := range body {
+		builders = append(builders, db.Client.{{ $pName }}.Create().SetInput(b))
+	}
+
+	{{ $cNames }} ,err := db.Client.{{ $pName }}.CreateBulk(builders...).Save(c.UserContext())
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusCreated).JSON(echo.Map{
+		"code":   http.StatusCreated,
+		"status": "success",
+		"data": {{ $cNames }},
+	})
+}
+
+func Update{{ $pName }}(c echo.Context) error {
+	id := c.Params("id")
+	body := new(ent.{{ $pName }}UpdateInput)
+	err := c.Bind(body)
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"data":   err.Error(),
+		})
+	}
+	{{ $cName }}, err := db.Client.{{ $pName }}.UpdateOneID(id).SetInput(body).Save(c.UserContext())
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":   err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(echo.Map{
+		"code":   http.StatusOK,
+		"status": "success",
+		"data":   {{ $cName }},
+	})
+}
+
+func Update{{ $pNames }}(c echo.Context) error {
+	w := c.Query("where")
+	where := new(ent.{{ $pName }}WhereInput)
+	
+	action := db.Client.{{ $pName }}.Update()
+	if w != "" {
+		err := json.Unmarshal([]byte(w), where)
+		if err != nil {
+			code := http.StatusBadRequest
+			return c.JSON(code, echo.Map{
+				"code":   code,
+				"status": "error",
+				"error":  err.Error(),
+			})
+		}
+		predicate, err := where.P()
+		if err != nil {
+			code := http.StatusBadRequest
+			return c.JSON(code, echo.Map{
+				"code":   code,
+				"status": "error",
+				"error":  err.Error(),
+			})
+		}
+		action = action.Where(predicate)
+	}
+
+
+	body := new(ent.{{ $pName }}UpdateInput)
+	err := c.Bind(body)
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":  err.Error(),
+		})
+	}
+
+	_, err = action.SetInput(body).Save(c.UserContext())
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":  err.Error(),
+		})
+	}
+
+	return c.Status(http.StatusOK).JSON(echo.Map{
+		"code":   http.StatusOK,
+		"status": "success",
+	})
+}
+
+func Delete{{ $pName }}(c echo.Context) error {
+	id := c.Params("id")
+	err := db.Client.{{ $pName }}.DeleteOneID(id).Exec(c.UserContext())
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":  err.Error(),
+		})
+	}
+
+	return c.JSON(echo.Map{
+		"code":   http.StatusOK,
+		"status": "success",
+	})
+}
+
+func Delete{{ $pNames }}(c echo.Context) error {
+	w := c.Query("where")
+	where := new(ent.{{ $pName }}WhereInput)
+	
+	action := db.Client.{{ $pName }}.Delete()
+	if w != "" {
+		err := json.Unmarshal([]byte(w), where)
+		if err != nil {
+			code := http.StatusBadRequest
+			return c.JSON(code, echo.Map{
+				"code":   code,
+				"status": "error",
+				"error":  err.Error(),
+			})
+		}	
+	
+		predicate, err := where.P()
+		if err != nil {
+			code := http.StatusBadRequest
+			return c.JSON(code, echo.Map{
+				"code":   code,
+				"status": "error",
+				"error":  err.Error(),
+			})
+		}
+		action = action.Where(predicate)
+	}
+
+	_, err := action.Exec(c.UserContext())
+	if err != nil {
+		code := http.StatusBadRequest
+		return c.JSON(code, echo.Map{
+			"code":   code,
+			"status": "error",
+			"error":  err.Error(),
+		})
+	}
+
+	return c.JSON(echo.Map{
+		"code":   http.StatusOK,
+		"status": "success",
+	})
+}
