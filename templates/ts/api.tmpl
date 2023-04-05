@@ -7,14 +7,15 @@ type Response<T> = {
   data?: T;
 };
 
-export class entcho {
+export class Entcho {
   private readonly url: string;
   constructor(url: string) {
     this.url = url.replace(/\/+$/, "");
   }
 
   async find<T extends keyof API>(resource: T, id: ID): Promise<Response<API[T]["entity"]>> {
-    const response = await fetch(`${this.url}/${String(resource)}/${id}`);
+    const url = `${this.url}/${String(resource)}/${id}`;
+    const response = await fetch(url);
     return response.json();
   }
 
@@ -22,7 +23,9 @@ export class entcho {
     resource: T,
     query: API[T]["queryInput"] = {}
   ): Promise<Response<Array<API[T]["entity"]>>> {
-    const response = await fetch(`${this.url}/${String(resource)}?query=${JSON.stringify(query)}`);
+    const url = `${this.url}/${String(resource)}/?query=${JSON.stringify(query)}`;
+    console.log(url);
+    const response = await fetch(url);
     return response.json();
   }
 
@@ -30,13 +33,10 @@ export class entcho {
     resource: T,
     input: API[T]["createInput"]
   ): Promise<Response<API[T]["entity"]>> {
-    const response = await fetch(`${this.url}/${String(resource)}`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(input),
-    });
+    const url = `${this.url}/${String(resource)}/`;
+    const headers = { "content-type": "application/json" };
+    const body = JSON.stringify(input);
+    const response = await fetch(url, { method: "POST", headers, body });
     return response.json();
   }
 
@@ -44,13 +44,10 @@ export class entcho {
     resource: T,
     input: API[T]["createInput"][]
   ): Promise<Response<API[T]["entity"][]>> {
-    const response = await fetch(`${this.url}/${String(resource)}/bulk`, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(input),
-    });
+    const url = `${this.url}/${String(resource)}/bulk`;
+    const headers = { "content-type": "application/json" };
+    const body = JSON.stringify(input);
+    const response = await fetch(url, { method: "POST", headers, body });
     return response.json();
   }
 
@@ -59,13 +56,10 @@ export class entcho {
     id: ID,
     input: API[T]["updateInput"]
   ): Promise<Response<API[T]["entity"]>> {
-    const response = await fetch(`${this.url}/${String(resource)}/${id}`, {
-      method: "PATCH",
-      headers: {
-        "content-type": "application/json",
-      },
-      body: JSON.stringify(input),
-    });
+    const url = `${this.url}/${String(resource)}/${id}`;
+    const headers = { "content-type": "application/json" };
+    const body = JSON.stringify(input);
+    const response = await fetch(url, { method: "PATCH", headers, body });
     return response.json();
   }
 
@@ -74,29 +68,16 @@ export class entcho {
     input: API[T]["updateInput"],
     where?: API[T]["whereInput"]
   ): Promise<Response<undefined>> {
-    const response = await fetch(
-      `${this.url}/${String(resource)}${where ? `?${JSON.stringify(where)}` : ""}`,
-      {
-        method: "PATCH",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: JSON.stringify(input),
-      }
-    );
+    const url = `${this.url}/${String(resource)}/${where ? `?${JSON.stringify(where)}` : ""}`;
+    const body = JSON.stringify(input);
+    const headers = { "content-type": "application/json" };
+    const response = await fetch(url, { method: "PATCH", headers, body });
     return response.json();
   }
 
-  async delete<T extends keyof API>(
-    resource: T,
-    where?: API[T]["whereInput"]
-  ): Promise<Response<undefined>> {
-    const response = await fetch(
-      `${this.url}/${String(resource)}${where ? `?${JSON.stringify(where)}` : ""}`,
-      {
-        method: "DELETE",
-      }
-    );
+  async delete<T extends keyof API>(resource: T, id: ID): Promise<Response<undefined>> {
+    const url = `${this.url}/${String(resource)}/${id}`;
+    const response = await fetch(url, { method: "DELETE" });
     return response.json();
   }
 
@@ -104,12 +85,8 @@ export class entcho {
     resource: T,
     where?: API[T]["whereInput"]
   ): Promise<Response<undefined>> {
-    const response = await fetch(
-      `${this.url}/${String(resource)}${where ? `?${JSON.stringify(where)}` : ""}`,
-      {
-        method: "DELETE",
-      }
-    );
+    const url = `${this.url}/${String(resource)}/${where ? `?${JSON.stringify(where)}` : ""}`;
+    const response = await fetch(url, { method: "DELETE" });
     return response.json();
   }
 }
