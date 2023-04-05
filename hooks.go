@@ -19,14 +19,14 @@ func (e *extension) generate(next gen.Generator) gen.Generator {
 		s = parseTemplate("ent/errors", e.data)
 		writeFile("ent/errors.go", s)
 
-		if e.data.FiberConfig != nil {
-			s = parseTemplate("fiber/routes", e.data)
-			writeFile(path.Join(e.data.FiberConfig.RoutesPath, "routes.go"), s)
+		if e.data.EchoConfig != nil {
+			s = parseTemplate("echo/routes", e.data)
+			writeFile(path.Join(e.data.EchoConfig.RoutesPath, "routes.go"), s)
 
 			for _, schema := range g.Schemas {
 				e.data.CurrentSchema = schema
-				s := parseTemplate("fiber/handler", e.data)
-				writeFile(path.Join(e.data.FiberConfig.HandlersPath, snake(plural(schema.Name))+".go"), s)
+				s := parseTemplate("echo/handler", e.data)
+				writeFile(path.Join(e.data.EchoConfig.HandlersPath, snake(plural(schema.Name))+".go"), s)
 			}
 		}
 

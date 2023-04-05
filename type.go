@@ -26,7 +26,7 @@ type data struct {
 	*gen.Graph
 	DBConfig      *DBConfig
 	TSConfig      *TSConfig
-	FiberConfig   *FiberConfig
+	EchoConfig    *EchoConfig
 	CurrentSchema *load.Schema
 }
 
@@ -41,7 +41,7 @@ type TSConfig struct {
 	ApiPath   string
 }
 
-type FiberConfig struct {
+type EchoConfig struct {
 	HandlersPath string
 	RoutesPath   string
 }

@@ -39,10 +39,10 @@ func WithDB(config *DBConfig) option {
 	}
 }
 
-func WithFiber(config *FiberConfig) option {
+func WithEcho(config *EchoConfig) option {
 	return func(e *extension) {
 		if config == nil {
-			config = new(FiberConfig)
+			config = new(EchoConfig)
 		}
 		if config.HandlersPath == "" {
 			config.HandlersPath = "handlers"
@@ -51,7 +51,7 @@ func WithFiber(config *FiberConfig) option {
 			config.RoutesPath = "routes"
 		}
 
-		e.data.FiberConfig = config
+		e.data.EchoConfig = config
 	}
 }
 
