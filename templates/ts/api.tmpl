@@ -21,10 +21,9 @@ export class Entcho {
 
   async query<T extends keyof API>(
     resource: T,
-    query: API[T]["queryInput"] = {}
+    query?: API[T]["queryInput"]
   ): Promise<Response<Array<API[T]["entity"]>>> {
-    const url = `${this.url}/${String(resource)}/?query=${JSON.stringify(query)}`;
-    console.log(url);
+    const url = `${this.url}/${String(resource)}/${query ? `?query=${JSON.stringify(query)}` : ""}`;
     const response = await fetch(url);
     return response.json();
   }
